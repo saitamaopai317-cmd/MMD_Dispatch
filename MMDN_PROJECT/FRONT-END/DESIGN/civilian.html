@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SDN > TERMINAL OS</title>
+
+    <style>
+        :root {
+            --teal: #1eb9a6; --map-grid: #138276;
+            --pin-danger: #e25b3e; --pin-rescue: #4caf50; 
+            --card-bg: #3d352b; --card-border: #a1907b;
+            --status-resting: #5fa571; --status-busy: #3b89a8;
+            --text-light: #e6dfd1; --bg-dark: #050505;
+        }
+        @font-face { font-family: 'SysFont'; src: local('Courier New'), monospace; }
+        body { background-color: var(--bg-dark); color: var(--text-light); font-family: 'SysFont', monospace; margin: 0; height: 100vh; display: flex; justify-content: center; align-items: center; overflow: hidden; user-select: none; }
+        .crt-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06)); background-size: 100% 4px, 3px 100%; pointer-events: none; z-index: 100; }
+        .screen-curve { width: 98vw; height: 96vh; background-color: #030a09; border: 2px solid #222; border-radius: 10px; padding: 10px; display: flex; flex-direction: column; position: relative; overflow: hidden; box-sizing: border-box; }
+        
+        #login-screen, #app-screen { height: 100%; width: 100%; position: absolute; top: 0; left: 0; background-color: var(--bg-dark); }
+        #login-screen { display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 50; }
+        #app-screen { display: none; padding: 10px; box-sizing: border-box; }
+        
+        .login-box { border: 2px solid var(--teal); padding: 40px; text-align: center; background: rgba(0,0,0,0.8); }
+        .login-box input { background: transparent; border: 1px solid var(--teal); color: var(--teal); padding: 10px; font-family: inherit; margin: 10px 0; width: 80%; text-align: center; outline: none; }
+        .login-box button { background: var(--teal); color: black; border: none; padding: 10px 20px; font-family: inherit; font-weight: bold; cursor: pointer; text-transform: uppercase; margin-top: 10px; }
+        
+        .nav-bar { display: flex; border-bottom: 2px solid #333; margin-bottom: 10px; }
+        .nav-btn { background: transparent; color: #777; border: none; border-bottom: 3px solid transparent; padding: 10px 20px; font-family: inherit; font-weight: bold; cursor: pointer; font-size: 1rem; }
+        .nav-btn.active { color: var(--teal); border-bottom-color: var(--teal); }
+        .view-container { flex: 1; display: none; position: relative; margin-bottom: 10px; }
+        .view-container.active { display: flex; }
+
+        /* WIDGETS */
+        .threat-container { position: absolute; top: 15px; left: 15px; width: 300px; z-index: 1000; background: rgba(0,0,0,0.8); border: 2px solid #555; padding: 5px; }
+        .threat-title { font-size: 0.75rem; color: #aaa; margin-bottom: 3px; font-weight: bold; }
+        .threat-bar { width: 100%; height: 15px; background: #222; position: relative; }
+        .threat-fill { height: 100%; background: var(--pin-danger); width: 0%; transition: width 0.5s; }
+        .weather-widget { position: absolute; top: 15px; right: 15px; background: rgba(0,0,0,0.8); border: 1px solid var(--map-grid); color: var(--map-grid); padding: 5px 15px; font-size: 0.75rem; z-index: 1000; border-radius: 4px; font-weight:bold; }
+        .game-over-text { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: red; font-size: 4rem; font-weight: bold; z-index: 2000; display: none; text-shadow: 0 0 20px black; white-space: nowrap; }
+
+        /* --- CAMERA VIEWPORT & SAN FRANZ MAP --- */
+        .map-viewport { 
+            width: 100%; height: 100%; 
+            border: 2px solid var(--card-border); 
+            position: relative; overflow: hidden; 
+            background-color: #02100e; 
+            box-shadow: inset 0 0 80px rgba(0,0,0,1);
+            cursor: grab;
+        }
+        .map-viewport:active {
+            cursor: grabbing;
+        }
+        
+        .tactical-map { 
+            width: 100%; height: 100%; 
+            position: absolute; top: 0; left: 0;
+            background-image: 
+                linear-gradient(rgba(30, 185, 166, 0.1) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(30, 185, 166, 0.1) 1px, transparent 1px);
+            background-size: 40px 40px;
+            transform-origin: center center;
+        }
+
+        /* CITY LAYOUT */
+        .highway-main { position: absolute; width: 150%; height: 18px; background: #061c1a; border-top: 1px solid rgba(30,185,166,0.3); border-bottom: 1px solid rgba(30,185,166,0.3); top: 50%; left: -25%; transform: rotate(40deg); }
+        .highway-cross { position: absolute; width: 150%; height: 12px; background: #061c1a; border-top: 1px solid rgba(30,185,166,0.2); border-bottom: 1px solid rgba(30,185,166,0.2); top: 50%; left: -25%; transform: rotate(-35deg); }
+        .rotonda { position: absolute; width: 45px; height: 45px; border-radius: 50%; background: #02100e; border: 2px solid rgba(30,185,166,0.5); top: calc(50% - 22.5px); left: calc(50% - 22.5px); z-index: 2; }
+        
+        /* PROCEDURAL HIGH-DENSITY WIREFRAME BUILDINGS */
+        .wf-bldg {
+            position: absolute;
+            border: 1px solid rgba(30,185,166,0.3);
+            background: rgba(30,185,166,0.05);
+            box-shadow: inset 0 0 8px rgba(30,185,166,0.1);
+            pointer-events: none;
+        }
+        .wf-bldg::after {
+            content: ''; position: absolute; top: 15%; left: 15%; right: 15%; bottom: 15%;
+            border: 1px dashed rgba(30,185,166,0.15);
+        }
+        .wf-complex { 
+            border: 1.5px solid rgba(30,185,166,0.6);
+            background: repeating-linear-gradient(45deg, transparent, transparent 3px, rgba(30,185,166,0.1) 3px, rgba(30,185,166,0.1) 6px); 
+        }
+        
+        .city-label {
+            position: absolute; bottom: 15px; left: 15px;
+            color: rgba(30, 185, 166, 0.4);
+            font-size: 1.5rem; font-weight: bold; letter-spacing: 5px;
+            pointer-events: none; z-index: 10;
+        }
+
+        /* MACRO VIEW: RED GLOWING PING */
+        .emergency-ping {
+            position: absolute; width: 16px; height: 16px;
+            background: var(--pin-danger); border-radius: 50%;
+            transform: translate(-50%, -50%); cursor: pointer;
+            box-shadow: 0 0 15px var(--pin-danger); z-index: 50; transition: 0.2s;
+        }
+        .emergency-ping::before {
+            content: ''; position: absolute; top: 50%; left: 50%;
+            width: 100%; height: 100%; border: 2px solid var(--pin-danger); border-radius: 50%;
+            transform: translate(-50%, -50%); animation: radar-pulse 1.5s infinite ease-out;
+        }
+        @keyframes radar-pulse { 0% { width: 16px; height: 16px; opacity: 1; } 100% { width: 60px; height: 60px; opacity: 0; } }
+
+        /* MICRO VIEW: ZOOMED TARGET BLOCK */
+        .target-block {
+            position: absolute;
+            background: rgba(226, 158, 62, 0.2);
+            border: 2px solid #e29e3e;
+            box-shadow: 0 0 20px rgba(226, 158, 62, 0.4), inset 0 0 15px rgba(226, 158, 62, 0.4);
+            transform: translate(-50%, -50%); z-index: 40;
+            animation: block-pulse 2s infinite alternate;
+        }
+        @keyframes block-pulse { from { box-shadow: 0 0 10px rgba(226,158,62,0.4); } to { box-shadow: 0 0 25px rgba(226,158,62,0.8); } }
+
+        /* MICRO VIEW: INCIDENT DETAILS WINDOW */
+        .incident-details {
+            position: absolute; top: -50px; left: 50%;
+            transform: translateX(-50%) scale(0.33); 
+            background: rgba(4,9,8,0.95); border: 2px solid #e29e3e;
+            padding: 12px; text-align: center; min-width: 160px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.9); pointer-events: none;
+        }
+        
+        .btn-unzoom { position: absolute; bottom: 15px; left: 50%; transform: translateX(-50%); background: #1f3a38; color: var(--teal); border: 1px solid var(--teal); padding: 8px 16px; font-family: inherit; font-weight: bold; cursor: pointer; z-index: 2000; display: none; }
+        .btn-unzoom:hover { background: var(--teal); color: black; }
+
+        /* HEROES */
+        .hero-pin { width: 28px; height: 28px; background-color: #3d352b; border: 3px solid var(--status-resting); border-radius: 50%; display: flex; justify-content: center; align-items: center; font-size: 0.8rem; font-weight: bold; color: white; z-index: 60; transition: left 0.6s ease, top 0.6s ease; }
+        
+        .action-bar { position: absolute; top: 15px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.9); border: 1px solid var(--card-border); padding: 10px 20px; display: none; align-items: center; gap: 15px; z-index: 1000; }
+        .btn-deploy { background: var(--status-resting); color: white; border: none; padding: 8px 15px; font-family: inherit; font-weight: bold; cursor: pointer; transition: 0.2s; }
+
+        /* ROSTER & COMMS */
+        .roster-carousel { display: flex; gap: 10px; height: 130px; justify-content: center; border-top: 1px solid #222; padding-top: 10px; }
+        .roster-card { width: 95px; background-color: var(--card-bg); border: 2px solid var(--card-border); display: flex; flex-direction: column; cursor: pointer; transition: 0.1s; }
+        .roster-card.selected { border-color: white; transform: translateY(-5px); box-shadow: 0 5px 15px rgba(0,0,0,0.5); }
+        .status-bar { text-align: center; font-weight: bold; font-size: 0.65rem; padding: 4px; color: white; }
+        .status-RESTING { background-color: var(--status-resting); }
+        .portrait { flex: 1; background: #2a241c; display: flex; flex-direction: column; justify-content: center; align-items: center; font-size: 1.5rem; color: #555; }
+        .skill-tag { font-size: 0.55rem; color: #ffe866; font-weight: bold; margin-top: 5px; text-transform: uppercase;}
+        .name-plate { background-color: var(--text-light); color: black; text-align: center; font-weight: bold; font-size: 0.65rem; padding: 4px; }
+        
+        .comms-layout { display: flex; flex-direction: column; width: 100%; border: 2px solid var(--teal); }
+        .chat-window { flex: 1; background: #0a1111; padding: 15px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
+        .msg { max-width: 70%; padding: 8px 12px; font-size: 0.9rem; }
+        .msg.sys { align-self: center; color: #555; border: 1px solid #333; }
+        .msg.tx { align-self: flex-end; background: #1f3a38; border-right: 3px solid var(--teal); }
+        .msg.rx { align-self: flex-start; background: #332822; border-left: 3px solid var(--pin-danger); color: #ddd; }
+        .chat-input { display: flex; border-top: 2px solid var(--teal); }
+        .chat-input input { flex: 1; background: transparent; border: none; color: white; padding: 15px; outline: none; }
+        .chat-input button { background: var(--teal); border: none; font-weight: bold; padding: 0 20px; cursor: pointer; }
+        
+        /* WEATHER ANIMATIONS */
+        .weather-overlay { position: absolute; top:0; left:0; width:100%; height:100%; pointer-events:none; z-index:100; display:none; }
+        .weather-overlay.active { display: block; }
+        .weather-rain { background-image: url('data:image/svg+xml;utf8,<svg width="10" height="20" xmlns="http://www.w3.org/2000/svg"><rect width="1" height="10" fill="rgba(200,220,255,0.4)" rx="1"/></svg>'); animation: rain-fall 0.25s linear infinite; }
+        .weather-storm { background-image: url('data:image/svg+xml;utf8,<svg width="10" height="20" xmlns="http://www.w3.org/2000/svg"><rect width="2" height="15" fill="rgba(180,200,255,0.6)" rx="1"/></svg>'); animation: lightning 4s infinite, rain-fall 0.15s linear infinite; }
+        .weather-clouds { background: radial-gradient(circle, rgba(255,255,255,0.15) 10%, transparent 60%); background-size: 300px 300px; animation: cloud-drift 40s linear infinite; opacity: 0.6; }
+        @keyframes rain-fall { 0% { background-position: 0 0; } 100% { background-position: 20px 100px; } }
+        @keyframes lightning { 0%, 95%, 98%, 100% { background-color: transparent; } 96%, 99% { background-color: rgba(255, 255, 255, 0.2); } }
+        @keyframes cloud-drift { 0% { background-position: 0 0; } 100% { background-position: -300px -150px; } }
+    </style>
+</head>
+<body>
+    <div class="crt-overlay"></div>
+    <div class="screen-curve">
+        
+        <!-- SECURE LOGIN SCREEN -->
+        <div id="login-screen">
+            <div class="login-box">
+                <h2>SDN MAINFRAME</h2>
+                <p style="font-size:0.75rem; color:#aaa; margin-bottom:10px;">SECURE CLEARANCE REQUIRED</p>
+                <input type="password" id="terminal-pass" placeholder="ENTER SECURITY KEY">
+                <br>
+                <button onclick="submitLogin()">INITIALIZE UPLINK</button>
+                <div id="login-error" style="color:var(--pin-danger); font-size:0.75rem; margin-top:10px; height:15px; font-weight:bold;"></div>
+            </div>
+        </div>
+        
+        <!-- APP -->
+        <div id="app-screen">
+            <div class="nav-bar">
+                <button class="nav-btn active" onclick="switchTab('map')">[ TACTICAL MAP ]</button>
+                <button class="nav-btn" onclick="switchTab('comms')">[ COMMS ]</button>
+            </div>
+            
+            <!-- MAP VIEW -->
+            <div id="view-map" class="view-container active">
+                <div class="action-bar" id="action-bar">
+                    <span id="action-text" style="font-weight:bold;">AWAITING ORDERS</span>
+                    <button class="btn-deploy" id="deploy-btn" onclick="executeDispatch()">CONFIRM DISPATCH</button>
+                </div>
+                
+                <!-- MAP VIEWPORT -->
+                <div class="map-viewport">
+                    <div class="tactical-map" id="map-grid"></div>
+                    <div class="city-label">SECTOR: SAN FRANZ</div>
+                    <button class="btn-unzoom" id="btn-unzoom" onclick="zoomOut()">[ RETRACT SENSORS ]</button>
+                    <div id="weather-fx" class="weather-overlay"></div>
+                </div>
+
+                <!-- FLOATING UI ELEMENTS -->
+                <div class="threat-container">
+                    <div class="threat-title" id="threat-title-text">CITY THREAT LEVEL: 0%</div>
+                    <div class="threat-bar"><div class="threat-fill" id="threat-bar-fill" style="width: 0%;"></div></div>
+                </div>
+                <div id="weather-widget" class="weather-widget">📡 --°C - CONNECTING...</div>
+                <div id="game-over" class="game-over-text">CRITICAL FAILURE</div>
+                
+                <div class="side-menu">
+                    <div class="side-btn" onclick="generateNewMap()" title="REBOOT SYSTEM">🔄</div>
+                    <div class="side-btn" onclick="toggleTestWeather()" title="CYCLE WEATHER OVERRIDE">⛅</div>
+                    <div class="side-btn" onclick="purgeSector()" title="PURGE SECTOR / CLEAR MAP" style="color: var(--pin-danger);">🧹</div>
+                </div>
+            </div>
+
+            <!-- COMMS VIEW -->
+            <div id="view-comms" class="view-container">
+                <div class="comms-layout">
+                    <div class="chat-window" id="chat-window"></div>
+                    <div id="chat-choices" class="choice-panel" style="display:none; background:#0f1c1a; border-top:1px solid var(--teal); padding:10px; flex-direction:column; gap:8px;"></div>
+                    <div class="chat-input" id="chat-input-box">
+                        <input type="text" id="chat-input" placeholder="Select a hero on the roster first..." disabled>
+                        <button onclick="sendChat()" id="chat-btn" disabled>SEND</button>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="roster-carousel" id="roster"></div>
+        </div>
+    </div>
+    
+    <!-- LOAD EXTERNAL MODULES (These now handle all logic automatically) -->
+    <script src="../REQUEST/weather.js"></script>
+    <script src="../REQUEST/api_client.js"></script>
+</body>
+</html>

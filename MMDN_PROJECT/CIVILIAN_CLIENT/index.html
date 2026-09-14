@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>San Franz // Citizen Uplink</title>
+    <style>
+        :root {
+            --teal: #1eb9a6; --danger: #e25b3e; --bg: #050505; 
+            --panel-bg: #0d1615; --card-bg: #142221;
+        }
+        body {
+            background-color: var(--bg); color: #e6dfd1; font-family: 'Courier New', monospace;
+            margin: 0; min-height: 100vh; display: flex; flex-direction: column; align-items: center;
+            box-sizing: border-box; padding: 15px; user-select: none;
+        }
+        .container {
+            width: 100%; max-width: 480px; background: var(--panel-bg);
+            border: 2px solid var(--teal); border-radius: 8px; padding: 20px;
+            box-sizing: border-box; box-shadow: 0 0 30px rgba(30,185,166,0.15);
+        }
+        h2 { color: var(--teal); margin: 0 0 5px 0; letter-spacing: 2px; text-align: center; }
+        .sub { font-size: 11px; color: #888; text-align: center; margin-bottom: 20px; }
+        
+        input {
+            width: 100%; background: #030807; border: 1px solid var(--teal);
+            color: #fff; padding: 12px; margin-bottom: 12px; box-sizing: border-box;
+            font-family: inherit; font-size: 13px; outline: none; text-align: center; transition: 0.3s;
+        }
+        
+        /* THE DIAL LOCK STYLES */
+        #dialCode {
+            font-size: 28px; letter-spacing: 15px; padding: 20px;
+            font-weight: bold; color: var(--teal); border-color: #335550;
+        }
+        #dialCode:focus { border-color: var(--teal); box-shadow: 0 0 15px rgba(30,185,166,0.3); }
+
+        .btn-grid { display: flex; gap: 10px; margin-bottom: 15px; }
+        .btn-sos {
+            flex: 1; padding: 15px 10px; font-weight: bold; border: none; cursor: pointer;
+            font-family: inherit; font-size: 13px; border-radius: 4px; transition: 0.2s;
+        }
+        .btn-med { background: #4caf50; color: white; }
+        .btn-vil { background: var(--danger); color: white; }
+        .btn-sos:hover { filter: brightness(1.2); }
+        #status-msg { text-align: center; font-size: 12px; font-weight: bold; min-height: 18px; margin-bottom: 15px; }
+
+        /* LIVE HERO ROSTER STRIP */
+        .roster-title { font-size: 11px; color: var(--teal); margin-bottom: 8px; font-weight: bold; letter-spacing: 1px; }
+        .roster-grid { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 5px; }
+        .hero-chip {
+            background: var(--card-bg); border: 1px solid #335550; padding: 8px;
+            min-width: 100px; text-align: center; border-radius: 4px; transition: 0.2s;
+        }
+        .hero-chip.recommended { border-color: #ffeb3b; box-shadow: 0 0 10px rgba(255,235,59,0.3); }
+        .hero-chip .name { font-weight: bold; font-size: 12px; color: #fff; }
+        .hero-chip .role { font-size: 10px; color: var(--teal); text-transform: uppercase; }
+
+        /* CORNER AI ADVISOR */
+        .ai-assistant {
+            position: fixed; bottom: 20px; right: 20px; width: 320px;
+            background: #020f0d; border: 2px solid var(--teal); border-radius: 8px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.9); z-index: 1000; overflow: hidden;
+            animation: slideUp 0.4s ease-out; display: none; /* Hidden until unlocked */
+        }
+        @keyframes slideUp { from { transform: translateY(100px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        .ai-header { background: #072722; padding: 10px 14px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--teal); }
+        .ai-title { font-size: 11px; font-weight: bold; color: var(--teal); letter-spacing: 1px; }
+        .ai-body { padding: 12px; font-size: 12px; line-height: 1.4; color: #d0ebe5; }
+        .ai-rec-box { background: rgba(30,185,166,0.1); border: 1px dashed var(--teal); padding: 8px; margin: 8px 0; border-radius: 4px; }
+        .btn-confirm-ai {
+            width: 100%; background: var(--teal); color: black; font-weight: bold;
+            border: none; padding: 10px; cursor: pointer; font-family: inherit;
+            text-transform: uppercase; font-size: 11px; margin-top: 5px;
+        }
+        .btn-confirm-ai:hover { background: #2fe0ca; }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h2>SAN FRANZ // EMERGENCY UPLINK</h2>
+        <div class="sub">CITIZEN RAPID DISPATCH PORTAL</div>
+
+        <!-- THE LOCK SCREEN -->
+        <div id="dial-lock">
+            <div style="text-align: center; color: #888; font-size: 11px; margin-bottom: 10px;">ENTER EMERGENCY ROUTING CODE</div>
+            <input type="text" id="dialCode" placeholder="***" maxlength="3" autocomplete="off">
+            <div id="lock-status" style="text-align: center; color: var(--danger); font-size: 11px; min-height: 15px; font-weight: bold;"></div>
+        </div>
+
+        <!-- THE HIDDEN SOS MENU -->
+        <div id="sos-menu" style="display: none; animation: slideUp 0.4s ease-out;">
+            <input type="text" id="civName" placeholder="ENTER YOUR NAME">
+            <input type="text" id="civLocation" placeholder="SECTOR OR STREET LOCATION">
+
+            <div class="btn-grid">
+                <button class="btn-sos btn-med" onclick="triggerAISOS('emergency')">🚨 MEDICAL / RESCUE</button>
+                <button class="btn-sos btn-vil" onclick="triggerAISOS('villain')">⚠️ VILLAIN THREAT</button>
+            </div>
+
+            <div id="status-msg">SECURE LINE OPEN. SELECT EMERGENCY TYPE.</div>
+        </div>
+
+        <div class="roster-title" style="margin-top: 20px;">📡 ACTIVE SECTOR OPERATIVES</div>
+        <div class="roster-grid" id="civilian-hero-roster">
+            <div style="font-size: 11px; color: #666;">Querying satellite link...</div>
+        </div>
+    </div>
+
+    <!-- CORNER AI ASSISTANT -->
+    <div class="ai-assistant" id="ai-panel">
+        <div class="ai-header">
+            <div class="ai-title">🤖 SDN TACTICAL ADVISOR (AI)</div>
+            <span style="font-size: 9px; color: #4caf50;">ONLINE</span>
+        </div>
+        <div class="ai-body">
+            <div id="ai-dialogue">Ready to assess incident parameters. Select an emergency type above to generate recommended squad telemetry.</div>
+            <div id="ai-recommendation-block" style="display: none;">
+                <div class="ai-rec-box">
+                    <strong>RECOMMENDED RESPONSE:</strong>
+                    <div id="ai-rec-names" style="color: #ffeb3b; margin-top: 4px;"></div>
+                </div>
+                <button class="btn-confirm-ai" id="btn-transmit" onclick="transmitPayload()">TRANSMIT TO DISPATCH</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let availableHeroes = {};
+        let pendingSignalType = null;
+        let recommendedSquad = [];
+
+        // --- DIALPAD LOCK LOGIC ---
+        document.getElementById('dialCode').addEventListener('input', function(e) {
+            const val = this.value;
+            const status = document.getElementById('lock-status');
+            
+            // If they type 911, unlock the terminal
+            if (val === '911') {
+                this.style.borderColor = '#4caf50';
+                this.style.color = '#4caf50';
+                status.style.color = '#4caf50';
+                status.innerText = "ACCESS GRANTED";
+                
+                setTimeout(() => {
+                    document.getElementById('dial-lock').style.display = 'none';
+                    document.getElementById('sos-menu').style.display = 'block';
+                    document.getElementById('ai-panel').style.display = 'block'; // Turn on AI companion
+                    document.getElementById('status-msg').style.color = "var(--teal)";
+                }, 500);
+            } 
+            // If they type any other 3 numbers, deny access
+            else if (val.length === 3) {
+                this.style.borderColor = 'var(--danger)';
+                this.style.color = 'var(--danger)';
+                status.innerText = "INVALID ROUTING CODE";
+                
+                setTimeout(() => {
+                    this.value = '';
+                    this.style.borderColor = '#335550';
+                    this.style.color = 'var(--teal)';
+                    status.innerText = "";
+                }, 800);
+            }
+        });
+
+        // --- HERO FETCH LOGIC ---
+        async function fetchSectorHeroes() {
+            try {
+                const res = await fetch('/BACKEND/CODE_PHP/get_heroes.php');
+                const data = await res.json();
+                if (data.success) {
+                    availableHeroes = data.heroes;
+                    renderBottomRoster();
+                }
+            } catch(e) {}
+        }
+
+        function renderBottomRoster() {
+            const container = document.getElementById('civilian-hero-roster');
+            container.innerHTML = '';
+            Object.values(availableHeroes).forEach(hero => {
+                const isRec = recommendedSquad.includes(hero.id);
+                const chip = document.createElement('div');
+                chip.className = `hero-chip ${isRec ? 'recommended' : ''}`;
+                chip.innerHTML = `
+                    <div class="name">${hero.name}</div>
+                    <div class="role">${hero.skill}</div>
+                    <div style="font-size:9px; color:${hero.status === 'RESTING' ? '#4caf50' : '#e25b3e'}">${hero.status}</div>
+                `;
+                container.appendChild(chip);
+            });
+        }
+
+        // --- AI RECOMMENDATION LOGIC ---
+        function triggerAISOS(type) {
+            pendingSignalType = type;
+            const dialogue = document.getElementById('ai-dialogue');
+            const recBlock = document.getElementById('ai-recommendation-block');
+            const recNames = document.getElementById('ai-rec-names');
+
+            recBlock.style.display = 'block';
+
+            if (type === 'emergency') {
+                recommendedSquad = ['H3', 'H1']; 
+                dialogue.innerHTML = `⚠️ <em>Civilian distress detected.</em> Recommending <strong>heavy support</strong> to secure the perimeter and <strong>tech sensors</strong> to assist triage.`;
+                recNames.innerHTML = `🛡️ ATLAS (Brawler) + 📡 SONAR (Tech)`;
+            } else {
+                recommendedSquad = ['H3', 'H2'];
+                dialogue.innerHTML = `🚨 <em>Hostile threat flagged.</em> Deploying suppression protocol: pairing <strong>offensive firepower</strong> with <strong>tactical defense</strong>.`;
+                recNames.innerHTML = `🛡️ ATLAS (Brawler) + 🔥 FLAMBAE (Elemental)`;
+            }
+
+            renderBottomRoster();
+        }
+
+        // --- TRANSMIT LOGIC ---
+        async function transmitPayload() {
+            const name = document.getElementById('civName').value.trim() || 'Anonymous Citizen';
+            const location = document.getElementById('civLocation').value.trim() || 'Sector San Franz';
+            const statusMsg = document.getElementById('status-msg');
+            const transmitBtn = document.getElementById('btn-transmit');
+
+            transmitBtn.disabled = true;
+            statusMsg.style.color = '#ffeb3b';
+            statusMsg.innerText = 'TRANSMITTING TELEMETRY + RECOMMENDED SQUAD...';
+
+            try {
+                const res = await fetch('/BACKEND/CODE_PHP/send_signal.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        civilian_name: name,
+                        location: location,
+                        signal_type: pendingSignalType,
+                        requested_heroes: recommendedSquad.join(',')
+                    })
+                });
+                const data = await res.json();
+
+                if (data.success) {
+                    statusMsg.style.color = '#4caf50';
+                    statusMsg.innerText = 'UPLINK CONFIRMED: DISPATCHER ACKNOWLEDGED';
+                    document.getElementById('ai-dialogue').innerText = '✅ Transmission locked. Tactical dispatcher is reviewing your squad request.';
+                    document.getElementById('ai-recommendation-block').style.display = 'none';
+                } else {
+                    statusMsg.style.color = 'var(--danger)';
+                    statusMsg.innerText = 'ERROR: ' + data.error;
+                }
+            } catch(e) {
+                statusMsg.style.color = 'var(--danger)';
+                statusMsg.innerText = 'CONNECTION SEVERED.';
+            } finally {
+                transmitBtn.disabled = false;
+            }
+        }
+
+        fetchSectorHeroes();
+        setInterval(fetchSectorHeroes, 5000);
+    </script>
+</body>
+</html>

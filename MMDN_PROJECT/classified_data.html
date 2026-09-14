@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SDN // CLASSIFIED INTEL</title>
+    <style>
+        :root { --danger: #cc0000; --bg-dark: #050505; --text-dim: #888; }
+        @font-face { font-family: 'SysFont'; src: local('Courier New'), monospace; }
+        body { background: var(--bg-dark); color: #fff; font-family: 'SysFont', monospace; margin: 0; display: flex; height: 100vh; overflow: hidden; user-select: none; }
+        
+        /* CRT Scanline Effect */
+        .scanlines { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%); background-size: 100% 4px; pointer-events: none; z-index: 100; opacity: 0.8; }
+        
+        .sidebar { width: 300px; border-right: 2px solid var(--danger); background: #0a0000; padding: 20px; overflow-y: auto; }
+        .header-stamp { color: var(--danger); font-size: 1.5rem; font-weight: bold; border: 3px solid var(--danger); padding: 10px; text-align: center; margin-bottom: 20px; letter-spacing: 4px; text-transform: uppercase; }
+        
+        .hero-item { padding: 15px; border-bottom: 1px solid #330000; cursor: pointer; transition: 0.2s; color: var(--text-dim); }
+        .hero-item:hover, .hero-item.active { background: #330000; color: #fff; border-left: 5px solid var(--danger); }
+        
+        .main-content { flex: 1; padding: 40px; background: radial-gradient(circle, #1a0000 0%, #000 100%); display: flex; flex-direction: column; }
+        
+        .dossier-header { display: flex; justify-content: space-between; border-bottom: 1px solid var(--danger); padding-bottom: 10px; margin-bottom: 20px; }
+        .alias { font-size: 3rem; font-weight: bold; color: #fff; text-shadow: 0 0 10px var(--danger); }
+        .status-badge { background: var(--danger); color: #000; padding: 5px 15px; font-weight: bold; height: fit-content; align-self: center; }
+        
+        .data-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        .data-box { background: rgba(200, 0, 0, 0.05); border: 1px solid #440000; padding: 20px; }
+        .data-label { color: var(--danger); font-size: 0.8rem; letter-spacing: 2px; margin-bottom: 5px; }
+        .data-value { font-size: 1.2rem; margin-bottom: 15px; }
+        
+        .redacted { background: #fff; color: #fff; user-select: none; }
+        .redacted:hover { background: transparent; color: #fff; } /* Hover to reveal */
+    </style>
+</head>
+<body>
+    <div class="scanlines"></div>
+    
+    <div class="sidebar">
+        <div class="header-stamp">TOP SECRET<br><span style="font-size:0.8rem;">EYES ONLY</span></div>
+        <div id="hero-list">LOADING...</div>
+    </div>
+    
+    <div class="main-content" id="dossier-view" style="display: none;">
+        <div class="dossier-header">
+            <div>
+                <div class="data-label">OPERATIVE ALIAS</div>
+                <div class="alias" id="val-alias">---</div>
+            </div>
+            <div class="status-badge">ACTIVE DUTY</div>
+        </div>
+        
+        <div class="data-grid">
+            <div class="data-box">
+                <div class="data-label">TRUE IDENTITY</div>
+                <div class="data-value redacted" id="val-realname">███████████</div>
+                
+                <div class="data-label">BLOOD TYPE</div>
+                <div class="data-value" id="val-blood">---</div>
+                
+                <div class="data-label">AUGMENTATIONS / BIOMETRICS</div>
+                <div class="data-value" id="val-aug">---</div>
+            </div>
+            
+            <div class="data-box">
+                <div class="data-label">PSYCHOLOGICAL EVALUATION</div>
+                <div class="data-value" id="val-psych" style="font-size: 1rem; color: #ccc; line-height: 1.4;">---</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let heroesData = {};
+
+        // Procedural Lore Generator (Generates consistent data based on hero ID)
+        const trueNames = ["Kaelen Vance", "Elias Thorne", "Maya Lin", "Jax Mercer", "Sarah Connor", "Viktor Drago", "Nova Sterling"];
+        const bloodTypes = ["O- Negative", "AB+ Enhanced", "B- Synthetic", "A+ Standard"];
+        const augmentations = [
+            "Sub-dermal carbon weave. Neural comms link.",
+            "Retinal HUD implant. Titanium reinforced joints.",
+            "None (Natural born human). High physical conditioning.",
+            "Cybernetic left arm (Class 4). Nanite blood filtration."
+        ];
+        const psychEvals = [
+            "Operative shows high stress tolerance but struggles with authority. Recommend solo dispatch or command of small, tight-knit squads.",
+            "Clinical empathy suppression detected. Highly effective in combat, but requires mandatory psych evaluation every 6 months.",
+            "Protective instincts border on liability. Will abandon mission parameters to ensure civilian safety. Monitor closely.",
+            "Textbook sociopathy channeled into tactical efficiency. Loyal to the paycheck and the team. Do not cross."
+        ];
+
+        async function loadClassifiedData() {
+            try {
+                const res = await fetch('/BACKEND/CODE_PHP/get_heroes.php');
+                const data = await res.json();
+                if(data.success) {
+                    heroesData = data.heroes;
+                    renderSidebar();
+                }
+            } catch (err) { console.error("Intel link severed."); }
+        }
+
+        function renderSidebar() {
+            const list = document.getElementById('hero-list');
+            list.innerHTML = '';
+            
+            Object.values(heroesData).forEach(hero => {
+                const div = document.createElement('div');
+                div.className = 'hero-item';
+                div.innerHTML = `<strong>${hero.name}</strong><br><span style="font-size:0.75rem;">ID: ${hero.id} // ${hero.skill}</span>`;
+                div.onclick = () => {
+                    document.querySelectorAll('.hero-item').forEach(el => el.classList.remove('active'));
+                    div.classList.add('active');
+                    showDossier(hero);
+                };
+                list.appendChild(div);
+            });
+        }
+
+        function showDossier(hero) {
+            document.getElementById('dossier-view').style.display = 'flex';
+            
+            document.getElementById('val-alias').innerText = hero.name;
+            
+            // Use the hero's ID to deterministically pick lore so it stays the same every time you click them
+            const idNum = parseInt(hero.id);
+            document.getElementById('val-realname').innerText = trueNames[idNum % trueNames.length];
+            document.getElementById('val-blood').innerText = bloodTypes[idNum % bloodTypes.length];
+            document.getElementById('val-aug').innerText = augmentations[idNum % augmentations.length];
+            document.getElementById('val-psych').innerText = psychEvals[idNum % psychEvals.length];
+        }
+
+        loadClassifiedData();
+    </script>
+</body>
+</html>

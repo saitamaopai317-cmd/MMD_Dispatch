@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Director Override // Hero Deployment</title>
+    <style>
+        body { background-color: #050505; color: #fff; font-family: monospace; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+        .admin-box { border: 2px solid #fbc02d; padding: 30px; background: #111; text-align: center; width: 350px; box-shadow: 0 0 20px rgba(251, 192, 45, 0.2); }
+        h2 { color: #fbc02d; margin-top: 0; letter-spacing: 2px; }
+        input, select { background: #000; border: 1px solid #444; color: #fff; padding: 15px; margin-bottom: 15px; width: 100%; box-sizing: border-box; text-align: center; font-family: monospace; font-size: 14px; outline: none; }
+        input:focus, select:focus { border-color: #fbc02d; }
+        button { background: #fbc02d; color: #000; border: none; padding: 15px; width: 100%; font-weight: bold; cursor: pointer; font-family: monospace; transition: 0.2s; }
+        button:hover { background: #fff; }
+        #status { margin-top: 15px; font-size: 14px; font-weight: bold; height: 20px; }
+    </style>
+</head>
+<body>
+    <div class="admin-box">
+        <h2>DIRECTOR OVERRIDE</h2>
+        <p style="font-size: 11px; color: #888; margin-bottom: 20px;">AUTHORIZE NEW ASSET FOR SECTOR DEPLOYMENT</p>
+        
+        <input type="text" id="heroName" placeholder="ENTER CODENAME (e.g. SHADOW)">
+        <select id="heroSkill">
+            <option value="combat">COMBAT (Brawler / Weapons)</option>
+            <option value="elemental">ELEMENTAL (Fire / Ice / Energy)</option>
+            <option value="support">SUPPORT (Tech / Medical)</option>
+        </select>
+        
+        <button onclick="addHero()">AUTHORIZE & DEPLOY TO ROSTER</button>
+        <div id="status"></div>
+    </div>
+
+    <script>
+        function addHero() {
+            const name = document.getElementById('heroName').value.toUpperCase();
+            const skill = document.getElementById('heroSkill').value;
+            const statusDiv = document.getElementById('status');
+            
+            if(!name) { statusDiv.innerText = "ERROR: CODENAME REQUIRED"; statusDiv.style.color = "red"; return; }
+            statusDiv.innerText = "UPLOADING TO MAINFRAME..."; statusDiv.style.color = "#fbc02d";
+
+            fetch('../BACKEND/CODE_PHP/add_hero.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name: name, skill: skill })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if(data.success) {
+                    statusDiv.innerText = "HERO ADDED TO ACTIVE ROSTER.";
+                    statusDiv.style.color = "#4caf50";
+                    document.getElementById('heroName').value = '';
+                }
+            });
+        }
+    </script>
+</body>
+</html>
